@@ -4,5 +4,7 @@ from Game import TrapTheMouse
 from GUI import Screen
 
 app = QApplication(sys.argv)
-window = TrapTheMouse()
+opponent = sys.argv[1]
+window = TrapTheMouse(opponent)
+window.game()
 sys.exit(app.exec_())
