@@ -2,9 +2,10 @@ import random
 import sys
 import time
 from copy import deepcopy
+from functools import partial
 
 from PyQt5.QtWidgets import QWidget, QApplication, QLabel, QVBoxLayout, QMainWindow, QGraphicsDropShadowEffect, QPushButton, QGraphicsPolygonItem, QGraphicsScene, QGraphicsView, QGraphicsPixmapItem, QGraphicsProxyWidget
-from PyQt5.QtGui import QFont, QColor, QPainter, QPixmap, QIcon, QPolygonF, QBrush, QColor
+from PyQt5.QtGui import QFont, QColor, QPainter, QPixmap, QIcon, QPolygonF, QBrush, QColor, QPen
 from PyQt5.QtCore import Qt, QSize, QPointF
 
 """
@@ -91,7 +92,7 @@ class TrapTheMouse(QMainWindow):
       -mice_move(difficulty)
         Se stabilește mutarea șoarecelui în funcție de atributul difficulty. Acesta va fi citit din terminal.
       -graphic_wall(table,i,j)
-        Se reprezintă grafic amplasarea pilonului pe poziția (i,j)
+        Se reprezintă grafic amplasarea pilonului pe poziția (i,j), dar și a șoricelului atunci când se joacă 2 adversari
       -game()
         Se desfășoară jocul principal.
 
@@ -108,6 +109,7 @@ class TrapTheMouse(QMainWindow):
         self.mice = [5, 5]
         self.ok = 0
         self.opponent = opponent
+        self.turn = 0
 
     def initial_state(self):
         self.resize(1030, 730)
@@ -127,10 +129,48 @@ class TrapTheMouse(QMainWindow):
             line = []
             graphicLine = []
             for j in range(11):
+                if i == 0:
+                    margin_button = HexButton()
+                    margin_button.setBrush(QBrush(QColor(0,0,0,0)))
+                    margin_button.setPen(QPen(Qt.NoPen))
+                    scene.addItem(margin_button)
+                    margin_button.setPos(x - 24, y - 45)
+                    m = -1
+                    n = deepcopy(j)
+                    margin_button.btn.clicked.connect(lambda _, first=m, second=n: self.graphic_wall(self.table, self.mice, self.turn, m=first, n=second))
+                if j == 0:
+                    margin_button = HexButton()
+                    margin_button.setBrush(QBrush(QColor(0, 0, 0, 1)))
+                    margin_button.setPen(QPen(Qt.NoPen))
+                    scene.addItem(margin_button)
+                    margin_button.setPos(x - 48, y)
+                    m = deepcopy(i)
+                    n = -1
+                    margin_button.btn.clicked.connect(lambda _, first=m, second=n: self.graphic_wall(self.table, self.mice, self.turn, m=first, n=second))
+                if i == 10:
+                    margin_button = HexButton()
+                    margin_button.setBrush(QBrush(QColor(0, 0, 0, 1)))
+                    margin_button.setPen(QPen(Qt.NoPen))
+                    scene.addItem(margin_button)
+                    margin_button.setPos(x - 24, y + 45)
+                    m = 11
+                    n = deepcopy(j)
+                    margin_button.btn.clicked.connect(lambda _, first=m, second=n: self.graphic_wall(self.table, self.mice, self.turn, m=first, n=second))
+                if j == 10:
+                    margin_button = HexButton()
+                    margin_button.setBrush(QBrush(QColor(0, 0, 0, 1)))
+                    margin_button.setPen(QPen(Qt.NoPen))
+                    scene.addItem(margin_button)
+                    margin_button.setPos(x + 48, y)
+                    m = deepcopy(i)
+                    n = 11
+                    margin_button.btn.clicked.connect(lambda _, first=m, second=n: self.graphic_wall(self.table, self.mice, self.turn, m=first, n=second))
                 button = HexButton()
                 scene.addItem(button)
                 button.setPos(x, y)
-                button.btn.clicked.connect(lambda _, first=i, second=j: self.graphic_wall(self.table, i=first, j=second))
+                m = i
+                n = j
+                button.btn.clicked.connect(lambda _, first=m, second=n : self.graphic_wall(self.table, self.mice, self.turn, m=first, n=second))
                 x += lx
                 line.append(0)
                 graphicLine.append(button)
@@ -170,7 +210,7 @@ class TrapTheMouse(QMainWindow):
         return table
 
     def valid_piece(self, table, a, b):
-        if table[a][b] == 0:
+        if table[a][b] == 0 and a > -1 and a < 11 and b > -1 and b < 11:
             return 1
         else:
             return 0
@@ -186,9 +226,9 @@ class TrapTheMouse(QMainWindow):
         if (x > -1 and x < 11 and y > -1 and y < 11 and table[x][y] == 0) or x == -1 or x == 11 or y == -1 or y == 11:
             if [x, y] == [mice[0], mice[1] - 1] or [x, y] == [mice[0], mice[1] + 1] or [x, y] == [mice[0] - 1, mice[1]] or [x, y] == [mice[0] + 1, mice[1]]:
                 return 1
-            elif x % 2 == 0 and ([x, y] == [mice[0] - 1, mice[1] - 1] or [x, y] == [mice[0] + 1, mice[1] - 1]):
+            elif x % 2 == 1 and ([x, y] == [mice[0] - 1, mice[1] - 1] or [x, y] == [mice[0] + 1, mice[1] - 1]):
                 return 1
-            elif x % 2 == 1 and ([x, y] == [mice[0] - 1, mice[1] + 1] or [x, y] == [mice[0] + 1, mice[1] + 1]):
+            elif x % 2 == 0 and ([x, y] == [mice[0] - 1, mice[1] + 1] or [x, y] == [mice[0] + 1, mice[1] + 1]):
                 return 1
         return 0
 
@@ -332,24 +372,52 @@ class TrapTheMouse(QMainWindow):
             if self.mice[0] > -1 and self.mice[0] < 11 and self.mice[1] > -1 and self.mice[1] < 11:
                 self.graphicTable[state[0]][state[1]].mice_image.setParentItem(self.graphicTable[state[0]][state[1]])
 
-    def graphic_wall(self, table, i, j):
-        if self.valid_piece(table, i, j) == 1:
-            self.put_piece(table, i, j)
-            self.graphicTable[i][j].setBrush(QBrush(QColor(255,0,0)))
-            self.ok = 1
+    def graphic_wall(self, table, mice, turn, m, n):
+        if turn == 0:
+            if self.valid_piece(table, m, n) == 1:
+                self.put_piece(table, m, n)
+                self.graphicTable[m][n].setBrush(QBrush(QColor(255, 0, 0)))
+                self.ok = 1
+        else:
+            print("Verify")
+            if self.validation(table, mice, m, n):
+                print("Yes")
+                self.graphicTable[self.mice[0]][self.mice[1]].scene().removeItem(self.graphicTable[self.mice[0]][self.mice[1]].mice_image)
+                result = self.transition(table, mice, m, n)
+                self.table = deepcopy(result[0])
+                self.mice = deepcopy(result[1])
+                if self.mice[0] > -1 and self.mice[0] < 11 and self.mice[1] > -1 and self.mice[1] < 11:
+                    self.graphicTable[self.mice[0]][self.mice[1]].mice_image.setParentItem(self.graphicTable[self.mice[0]][self.mice[1]])
+                self.ok = 0
 
     def game(self):
         self.initial_state()
         player = 0
         while self.final_state(self.mice, self.table) == 0:
-            if player == 0:
-                while self.ok == 0:
-                    QApplication.processEvents()
-                player = 1
-                self.ok = 0
+            if self.opponent == 'human':
+                if player == 0:
+                    print("Human1 turn")
+                    while self.ok == 0:
+                        QApplication.processEvents()
+                    player = 1
+                    self.turn = 1
+                else:
+                    print("Human2 turn")
+                    while self.ok == 1:
+                        QApplication.processEvents()
+                    print("End of human2 loop")
+                    player = 0
+                    self.turn = 0
             else:
-                self.mice_move(self.opponent)
-                player = 0
+                if player == 0:
+                    while self.ok == 0:
+                        QApplication.processEvents()
+                    player = 1
+                    self.ok = 0
+                    self.turn = 0
+                else:
+                    self.mice_move(self.opponent)
+                    player = 0
         if self.final_state(self.mice, self.table) == 1:
             label = QLabel("The mice won!", self)
         else:
